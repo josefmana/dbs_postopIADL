@@ -319,11 +319,11 @@ m$m1_teff %>%
   ggplot( aes( y = par, x = est, fill = stat(abs(x) > .1) ) ) +
   stat_halfeye( .width = .95, fatten_point = 3 ) +
   geom_vline( xintercept = 0, linetype = "dashed" ) +
-  labs( x = "Effect size", y = "Prediction term" ) +
+  labs( x = "Effect size", y = "Parameter", title = "Regression of IADL on time and LEDD") +
   scale_y_discrete( labels = c("Post x LEDD", "LEDD", "Post-surgery") ) +
   scale_x_continuous( breaks = seq(-.2,1,.2), labels = seq(-.2,1,.2) ) +
   scale_fill_manual( values = c("gray80","skyblue") ) +
-  theme( legend.position = "none" )
+  theme( legend.position = "none", plot.title = element_text(hjust=.5) )
 
 # save it
 ggsave( "figures/m1_teff_par_estimates.jpg", dpi = 600 )
@@ -343,11 +343,113 @@ sapply( names(m)[1:3], function(i) as_draws_df( m[[i]] ) %>% select(b_post1) ) %
   scale_x_continuous( breaks = seq(-.2,1.2,.2), labels = seq(-.2,1.2,.2) %>% sprintf("%.1f",.) ) +
   scale_color_manual( values = alpha( cbPal[c(5,3,4)], 1 ) ) +
   scale_fill_manual( values = alpha( cbPal[c(5,3,4)], .1 ) ) +
-  theme( legend.position = "bottom", plot.title = element_text(hjust = .5) )
+  theme( legend.position = "bottom", plot.title = element_text(hjust=.5) )
 
 # save it
 ggsave( "figures/b_post1_estimates.jpg", dpi = 600 )
 
 
+# ---- conditional effects ----
 
-# next add conditional_effects plot 
+# prepare a list holding the conditional effects tabs
+ce <- list()
+
+# extract main effects
+for ( i in c("post","led") ) ce[[i]] <- conditional_effects( m$m1_teff , categorical = T , effects = i )
+
+# prepare conditions for interaction extraction¨
+cond <- make_conditions( m$m1_teff, vars = "post" )
+
+# add interaction to the list
+ce$`post:led` <- conditional_effects( m$m1_teff, categorical = T, effects = "led", conditions = cond )
+
+# add response levels names
+for ( i in names(ce) ) {
+  ce[[i]][[paste0(sub(".*:","",i),":cats__")]] <- ce[[i]][[paste0(sub(".*:","",i),":cats__")]] %>%
+    mutate( `Response:` = recode(cats__ , "4" = '"none"', "3" = '"a little"' , "2" = '"somewhat"' , "1" = '"a lot"' , "0" = '"cannot do"' ) )
+}
+
+# prepare the pre-vs-post figure
+ce$A <- ce$post[["post:cats__"]] %>%
+  ggplot( aes(x = post, y = estimate__, ymin = lower__, ymax = upper__, color = `Response:`) ) +
+  geom_point( position = position_dodge(.66), size = 5 ) +
+  geom_errorbar( position = position_dodge(.66), size = 1 , width = .5) +
+  scale_x_discrete( name = "Time of assessment", labels = c("Pre-surgery","Post-surgery") ) +
+  scale_y_continuous( name = "Probability of response (%)",
+                      limits = c(0,1) , breaks = seq(0,1,.1), labels = seq(0,100,10)
+                      ) +
+  theme_classic( base_size = 14 ) + theme( legend.position = "none" )
+
+# prepare the LEDD (main effect) figure
+ce$B <- ce$led[["led:cats__"]] %>%
+  ggplot( aes(x = led, y = estimate__, ymin = lower__, ymax = upper__, color = `Response:`, fill = `Response:`) ) +
+  geom_line( size = 1.5 ) +
+  geom_ribbon( alpha = .1 , linetype = 0 ) +
+  scale_x_continuous( name = "LEDD (mg)", labels = seq(500,4000,500),
+                      breaks = (seq(500,4000,500)-scl["led","M"]) / scl["led","SD"]
+                      ) +
+  scale_y_continuous( name = "Probability of response (%)",
+                      limits = c(0,1) , breaks = seq(0,1,.1) , labels = seq(0,100,10)
+                      ) +
+  theme_classic( base_size = 14 ) + theme( legend.position = "none", axis.title.y = element_blank() )
+
+# prepare the LEDD:time interaction figure
+ce$C <- ce$`post:led`[["led:cats__"]] %>%
+  mutate( post = factor( ifelse(post == 0, "pre-surgery", "post-surgery"),
+                         levels = paste0(c("pre","post"),"-surgery"), ordered = T )
+          ) %>%
+  ggplot( aes(x = led, y = estimate__, ymin = lower__, ymax = upper__, color = `Response:`, fill = `Response:`) ) +
+  geom_line( size = 1.5 ) +
+  geom_ribbon( alpha = .1 , linetype = 0 ) +
+  scale_x_continuous( name = "LEDD (mg)", labels = seq(500,4000,500),
+                      breaks = (seq(500,4000,500)-scl["led","M"]) / scl["led","SD"]
+                      ) +
+  scale_y_continuous( name = "Probability of response (%)",
+                      limits = c(0,1) , breaks = seq(0,1,.1) , labels = seq(0,100,10)
+                      ) +
+  facet_wrap( ~ post ) +
+  theme_classic( base_size = 14 ) + theme( legend.position = "bottom" )
+
+# collect the plots into a single figure
+( ce$A | ce$B ) / ce$C + plot_annotation( tag_levels = "A" )
+
+# save it
+ggsave( "figures/m1_teff_conditional_effects.jpg", width = 9.64, height = 1.5 * 6, dpi = 600 )
+
+
+# ---- posterior predictions per LEDD ----
+
+M = 5e3 # maximal LEDD tó serve as predictor
+
+# calculate the predictions
+ppred <- posterior_epred(
+  m$m1_teff, # the model
+  newdata = expand.grid( # points at which I wish to predict the outcome
+    c(0,1), ( (seq(0,M,1)-scl["led","M"])/scl["led","SD"] )
+  ) %>%
+    `colnames<-`( c("post","led") ) %>%
+    mutate( id = NA, item = NA ), # specify unobserved cases
+  re_formula = NA # ensure reproducibility by allowing only the "fixed" effects
+)
+
+# prepare array for the prediction
+# results in 2 (pre vs post v contrast) x 5001 (LEDD values) x 5 (responses) x 3 (median and CIs) array
+prd <- array( data = NA, dim = c(2,M+1,5,3),
+              dimnames = list( c("pre","post"), seq(0,M,1), seq(0,4,1), c("Est","CI.low","CI.upp") )
+              )
+
+# fill-in medians and 95% HDIs
+for ( i in 1:dim(prd)[1] ) { # loop through pre- and post-
+  for ( j in 1:dim(prd)[2] ) { # loop through all values of LEDD
+    for ( k in 1:dim(prd)[3] ) { # loop through all responses
+      prd[i, j, k, ] <- c(
+        100 * median( ppred[ , i*j, k ] ),
+        100 * ci( ppred[ , i*j, k ], method = "HDI", ci = .95 ) %>% as.data.frame() %>% select( CI_low ) %>% as.numeric(),
+        100 * ci( ppred[ , i*j, k ], method = "HDI", ci = .95 ) %>% as.data.frame() %>% select( CI_high ) %>% as.numeric()
+      )
+    }
+  }
+}
+
+# save the predictions for a Shiny app
+saveRDS( prd, "ppred.RDS" )
