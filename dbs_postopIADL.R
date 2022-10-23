@@ -417,39 +417,14 @@ ce$C <- ce$`post:led`[["led:cats__"]] %>%
 ggsave( "figures/m1_teff_conditional_effects.jpg", width = 9.64, height = 1.5 * 6, dpi = 600 )
 
 
-# ---- posterior predictions per LEDD ----
+# ---- save information needed for prediction calculations ----
 
-M = 5e3 # maximal LEDD tó serve as predictor
+# prepare a folder
+if( !dir.exists("shiny") ) dir.create("shiny")
 
-# calculate the predictions
-ppred <- posterior_epred(
-  m$m1_teff, # the model
-  newdata = expand.grid( # points at which I wish to predict the outcome
-    c(0,1), ( (seq(0,M,1)-scl["led","M"])/scl["led","SD"] )
-  ) %>%
-    `colnames<-`( c("post","led") ) %>%
-    mutate( id = NA, item = NA ), # specify unobserved cases
-  re_formula = NA # ensure reproducibility by allowing only the "fixed" effects
-)
+# remove the original data from m1_teff model such that it's shareable
+shiny.m <- m$m1_teff
+shiny.m$data <- data.frame(resp = factor(NA, levels = c(0,1)), post = NA, led = NA, id = NA, item = NA)
 
-# prepare array for the prediction
-# results in 2 (pre vs post v contrast) x 5001 (LEDD values) x 5 (responses) x 3 (median and CIs) array
-prd <- array( data = NA, dim = c(2,M+1,5,3),
-              dimnames = list( c("pre","post"), seq(0,M,1), seq(0,4,1), c("Est","CI.low","CI.upp") )
-              )
-
-# fill-in medians and 95% HDIs
-for ( i in 1:dim(prd)[1] ) { # loop through pre- and post-
-  for ( j in 1:dim(prd)[2] ) { # loop through all values of LEDD
-    for ( k in 1:dim(prd)[3] ) { # loop through all responses
-      prd[i, j, k, ] <- c(
-        100 * median( ppred[ , i*j, k ] ),
-        100 * ci( ppred[ , i*j, k ], method = "HDI", ci = .95 ) %>% as.data.frame() %>% select( CI_low ) %>% as.numeric(),
-        100 * ci( ppred[ , i*j, k ], method = "HDI", ci = .95 ) %>% as.data.frame() %>% select( CI_high ) %>% as.numeric()
-      )
-    }
-  }
-}
-
-# save the predictions for a Shiny app
-saveRDS( prd, "ppred.RDS" )
+# save the information needed
+saveRDS( list(m = shiny.m, scl = scl), "shiny/stat_model.RDS" )
