@@ -121,11 +121,11 @@ df <- d2 %>%
           resp = as.ordered( resp )
           )
 
-# check the contrast for pre/post factor
-contrasts( df$post ) # ok, it's an indicator variable coded as I wanted
-
 # check the number of patients
-N <- length( unique(df$id) ) # N = 32
+length( unique(df$id) ) # N = 32
+
+# check contrasts for the session
+contrasts( df$post ) # indicator variable coding, A-OK
 
 
 # ---- models set-up ---- 
@@ -428,3 +428,9 @@ shiny.m$data <- data.frame(resp = factor(NA, levels = c(0,1)), post = NA, led = 
 
 # save the information needed
 saveRDS( list(m = shiny.m, scl = scl), "shiny/stat_model.RDS" )
+
+
+# ----------- session info -----------
+
+# write the sessionInfo() into a .txt file
+capture.output( sessionInfo(), file = "sessions/dbs_postopIADL_modelling.txt" )
