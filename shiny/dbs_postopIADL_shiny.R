@@ -91,7 +91,8 @@ server <- function(input, output) {
         mutate( Md = 100 * sapply( 1:nrow(.), function(i) median( ppred()[ , post[i], resp[i] ] ) ),
                 CI.low = 100 * sapply( 1:nrow(.), function(i) ci( ppred()[ , post[i], resp[i] ], method = "HDI", ci = .95 ) %>% as.data.frame() %>% select(CI_low) %>% as.numeric() ),
                 CI.upp = 100 * sapply( 1:nrow(.), function(i) ci( ppred()[ , post[i], resp[i] ], method = "HDI", ci = .95 ) %>% as.data.frame() %>% select(CI_high) %>% as.numeric() ),
-                `Session:` = ifelse( post == 1, "pre-surgery", "post-surgery"), resp = as.factor(resp) ) %>%
+                `Session:` = ifelse( post == 1, "pre-surgery", "post-surgery") %>% factor( levels = paste0(c("pre","post"),"-surgery" ), ordered = T),
+                resp = as.factor(resp) ) %>%
         # plot it
         ggplot( aes( x = resp, y = Md, ymin = CI.low, ymax = CI.upp, color = `Session:`, fill = `Session:` ) ) +
         geom_pointrange( shape = 21, size = 3.5, fatten = 2, position = position_dodge( width = .25 ) ) +
