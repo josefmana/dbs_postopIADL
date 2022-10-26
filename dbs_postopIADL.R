@@ -35,7 +35,7 @@ s = 87542 # seed for reproducibility
 sapply( c("models", "figures", "tables", "sessions"), function(i) if( !dir.exists(i) ) dir.create(i) )
 
 # set ggplot theme
-theme_set( bayesplot::theme_default( base_size = 14 ) )
+theme_set( theme_classic(base_size = 14 ) )
 
 # prepare colors to use in graphs (a colorblind-friendly palette)
 cbPal <- c( "#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7" )
