@@ -3,5 +3,6 @@
 .RData
 .Ruserdata
 
+models/*.rds
 **/.DS_Store
 _nogithub/
