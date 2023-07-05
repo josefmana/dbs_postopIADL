@@ -1,23 +1,24 @@
-# Ran in R version 4.2.0 (2022-04-22), on aarch64-apple-darwin20 (64-bit) platform under macOS Monterey 12.6.
-
-# I used the following versions of packages employed: dplyr_1.0.9, tidyverse_1.3.1, brms_2.17.0,
-# tidybayes_3.0.2, ggplot2_3.3.6 and patchwork_1.1.1.
-
-# set working directory (works only in RStudio)
-setwd( dirname(rstudioapi::getSourceEditorContext()$path) )
+# This is a script for all of the following:
+# (i) scientific model definition (DAG)
+# (ii) data pre-processing
+# (iii) model specification, fitting and checking
+# (iv) post-processing
 
 # list required packages into a character object
-pkgs <- c(
-  "dplyr", "tidyverse", # for data wrangling
-  "brms", "tidybayes", "bayestestR", # for Bayesian analyses 
-  "ggplot2", "patchwork" # for plotting
-)
+pkgs <- c( "rstudioapi", # setting working directory via RStudio API
+           "dplyr", "tidyverse", # for data wrangling
+           "brms", "tidybayes", "bayestestR", # for Bayesian analyses 
+           "ggplot2", "ggdag" # for plotting
+           )
 
 # load or install packages as needed
 for ( i in pkgs ) {
   if ( i %in% rownames( installed.packages() ) == F ) install.packages(i) # install if it ain't installed yet
   if ( i %in% names( sessionInfo()$otherPkgs ) == F ) library( i , character.only = T ) # load if it ain't loaded yet
 }
+
+# set working directory (works only in RStudio)
+setwd( dirname( getSourceEditorContext()$path ) )
 
 # set some values for later
 options( mc.cores = parallel::detectCores() ) # use all parallel CPU cores
@@ -41,9 +42,9 @@ theme_set( theme_classic(base_size = 14 ) )
 cbPal <- c( "#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7" )
 
 # read data
-d0 <- read.csv( "data/20220207_dbs_iadl_data_full.csv" , sep = "," ) # the data set
-d.par <- read.table( "data/20220224_stim_pars.txt" , header = T ) # stimulation parameters
-d.nms <- read.csv( "data/item_nms.csv" , sep = "," , row.names = 1 ) # item names
+d0 <- read.csv( "_nogithub/data/20220207_dbs_iadl_data_full.csv" , sep = "," ) # the data set
+d.par <- read.table( "_nogithub/data/20220224_stim_pars.txt" , header = T ) # stimulation parameters
+d.nms <- read.csv( "_nogithub/data/item_nms.csv" , sep = "," , row.names = 1 ) # item names
 
 
 # ----------- heuristic causal model (DAG)  -----------
