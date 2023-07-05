@@ -3,6 +3,7 @@
 .RData
 .Ruserdata
 
-models/*.rds
+**/.Rapp.history
 **/.DS_Store
+models/*.rds
 _nogithub/
